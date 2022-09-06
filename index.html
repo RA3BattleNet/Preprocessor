@@ -1,8 +1,245 @@
 <html>
   <head>
     <title>Text Processor</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      #app {
+        padding: 0 16px;
+      }
+
+      .separator {
+        border-top: 1px solid gray;
+        margin: 4px 0;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: row;
+        font-family: monospace;
+      }
+
+      .main-controller {
+        min-height: 3em;
+        align-items: center;
+      }
+
+      .container.hint {
+        font-weight: bold;
+        padding: 4px 0;
+        user-select: none;
+      }
+
+      .user-input {
+        width: 35%;
+      }
+
+      label.user-input {
+        display: flex;
+        align-items: center;
+      }
+
+      textarea.user-input {
+        padding: 0 0.5ch;
+        border: 0;
+        min-height: 4em;
+        outline: 1px solid gray;
+        resize: vertical;
+        overflow: auto;
+      }
+
+      .user-input input {
+        margin-left: 1ch;
+        flex-grow: 1;
+      }
+
+      .input-result {
+        display: inline-block;
+        width: 50%;
+        margin-left: 5%;
+      }
+
+      .input-result .error {
+        padding: 0.5ch 1ch;
+        background: rgb(72, 0, 0);
+        color: rgb(255, 192, 0);
+        font-weight: bold;
+        border-radius: 4px;
+      }
+
+      table.input-result {
+        border-spacing: 0;
+        overflow: auto;
+      }
+
+      .input-result td {
+        border: 0;
+        padding: 0 0.5ch;
+        min-width: 10ch;
+        box-shadow: 0 -1px 0 gray;
+      }
+
+      .input-result td.hint {
+        min-width: 1ch;
+        user-select: none;
+        color: gray;
+      }
+
+      .input-result tfoot td {
+        user-select: none;
+        color: gray;
+      }
+
+      pre.input-result {
+        overflow-x: auto;
+      }
+    </style>
   </head>
   <body>
-    Text Processor
+    <div id="app">
+      <h1>
+        文本处理器
+      </h1>
+      <div class="container main-controller">
+        <label class="user-input">
+          代码
+          <input type="text" v-model="code" v-on:input="redo" />
+        </label>
+        <div class="input-result">
+          <div class="error" v-if="error">
+            {{ error }}
+          </div>
+          <button v-on:click="generate" v-else>生成处理后的数据</button>
+        </div>
+      </div>
+      <div class="separator"></div>
+      <div class="container hint">
+        <div class="user-input">
+          <label for="main-user-input">用户输入</label>
+        </div>
+        <div class="input-result">
+          处理结果
+          <span style="margin-left: 1ch"></span>
+          <button v-if="pre" v-on:click="select">
+            全选
+          </button>
+        </div>
+      </div>
+      <div class="container">
+        <textarea
+          id="main-user-input"
+          class="user-input"
+          v-model="text"
+          placeholder="Type here"
+          v-on:input="redo">
+        </textarea>
+        <table v-if="(splitted.length) > 0 && !generated" class="input-result">
+          <tbody>
+            <tr v-for="item, i in splitted" :key="item">
+              <td>{{ item }}</td>
+              <td class="hint">{{ item ? '→' : '' }}</td>
+              <td class="hint">{{ process(item) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">总共有{{splitted.length}}个元素</td>
+            </tr>
+          </tfoot>
+        </table>
+        <pre v-else-if="generated" class="input-result" ref="pre">{{ generated }}</pre>
+      </div>
+    </div>
+    <script>
+    const { createApp, computed, ref } = Vue
+
+    createApp({
+      setup() {
+        const text = ref('')
+        const code = ref('(x, i) => x')
+        const error = ref('')
+        const generated = ref('')
+        const pre = ref(null)
+        const replaced = computed(() => text.value.replace(/\s+/g, ' '))
+        const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
+        const processor = computed(() => {
+          try {
+            const newFunction = eval(code.value)
+            if (typeof newFunction !== 'function') {
+              throw Error(`${code.value || 'input value'} is not a function`)
+            }
+            console.log(`creating with ${code.value}`, newFunction)
+            error.value = ''
+            return (x, i) => {
+              try {
+                return newFunction.call(null, x, i)
+              }
+              catch (executionError) {
+                error.value = `${executionError}`
+                return x
+              }
+            }
+          }
+          catch (parseError) {
+            error.value = `${parseError}`
+            return x => x
+          }
+        })
+        function redo() {
+          generated.value = ''
+        }
+        function process(text) {
+          return text.split('')
+            .map(c => c.charCodeAt(0))
+            .map(processor.value)
+            .map(x => String.fromCharCode(x))
+            .join('')
+        }
+        function generate() {
+          const fullText = [...splitted.value, '\xFF'].join(' ')
+          const processed = process(fullText)
+            .split('')
+            .map(c => c.charCodeAt(0))
+            .map(x => ('0000' + x.toString(16).toUpperCase()).slice(-4))
+            .map(s => `\\u${s}`)
+          const reduced = processed.reduce((a, s) => {
+            const last = [...a.pop(), s]
+            a.push(...(last.length >= 16 ? [last, []] : [last]))
+            return a
+          }, [[]])
+          const type = `std::wstring_view`
+          const indent = '    '
+          const result = reduced.map(a => `${indent}"${a.join('')}"`).join(`\n`)
+          generated.value =
+            `static ${type} const custom_data;\n\n`
+            + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
+        }
+
+        function select() {
+          const range = document.createRange()
+          range.selectNodeContents(pre.value)
+          var sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+
+        return {
+          text,
+          code,
+          error,
+          generated,
+          pre,
+          splitted,
+          redo,
+          process,
+          generate,
+          select,
+        }
+      }
+    }).mount('#app')
+    </script>
   </body>
 </html>
