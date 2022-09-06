@@ -1,6 +1,8 @@
 <html>
   <head>
-    <title>Text Processor</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>文本预处理器</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
     <style>
       * {
@@ -9,6 +11,12 @@
 
       #app {
         padding: 0 16px;
+      }
+
+      @media screen and (min-width: 800px) {
+        #app {
+          padding: 0 32px;
+        }
       }
 
       .separator {
@@ -101,7 +109,7 @@
   <body>
     <div id="app">
       <h1>
-        文本处理器
+        文本预处理器
       </h1>
       <div class="container main-controller">
         <label class="user-input">
@@ -154,92 +162,92 @@
       </div>
     </div>
     <script>
-    const { createApp, computed, ref } = Vue
+      const { createApp, computed, ref } = Vue
 
-    createApp({
-      setup() {
-        const text = ref('')
-        const code = ref('(x, i) => x')
-        const error = ref('')
-        const generated = ref('')
-        const pre = ref(null)
-        const replaced = computed(() => text.value.replace(/\s+/g, ' '))
-        const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
-        const processor = computed(() => {
-          try {
-            const newFunction = eval(code.value)
-            if (typeof newFunction !== 'function') {
-              throw Error(`${code.value || 'input value'} is not a function`)
-            }
-            console.log(`creating with ${code.value}`, newFunction)
-            error.value = ''
-            return (x, i) => {
-              try {
-                return newFunction.call(null, x, i)
+      createApp({
+        setup() {
+          const text = ref('')
+          const code = ref('(x, i) => x')
+          const error = ref('')
+          const generated = ref('')
+          const pre = ref(null)
+          const replaced = computed(() => text.value.replace(/\s+/g, ' '))
+          const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
+          const processor = computed(() => {
+            try {
+              const newFunction = eval(code.value)
+              if (typeof newFunction !== 'function') {
+                throw Error(`${code.value || 'input value'} is not a function`)
               }
-              catch (executionError) {
-                error.value = `${executionError}`
-                return x
+              console.log(`creating with ${code.value}`, newFunction)
+              error.value = ''
+              return (x, i) => {
+                try {
+                  return newFunction.call(null, x, i)
+                }
+                catch (executionError) {
+                  error.value = `${executionError}`
+                  return x
+                }
               }
             }
+            catch (parseError) {
+              error.value = `${parseError}`
+              return x => x
+            }
+          })
+          function redo() {
+            generated.value = ''
           }
-          catch (parseError) {
-            error.value = `${parseError}`
-            return x => x
+          function process(text) {
+            return text.split('')
+              .map(c => c.charCodeAt(0))
+              .map(processor.value)
+              .map(x => String.fromCharCode(x))
+              .join('')
           }
-        })
-        function redo() {
-          generated.value = ''
-        }
-        function process(text) {
-          return text.split('')
-            .map(c => c.charCodeAt(0))
-            .map(processor.value)
-            .map(x => String.fromCharCode(x))
-            .join('')
-        }
-        function generate() {
-          const fullText = [...splitted.value, '\xFF'].join(' ')
-          const processed = process(fullText)
-            .split('')
-            .map(c => c.charCodeAt(0))
-            .map(x => ('0000' + x.toString(16).toUpperCase()).slice(-4))
-            .map(s => `\\u${s}`)
-          const reduced = processed.reduce((a, s) => {
-            const last = [...a.pop(), s]
-            a.push(...(last.length >= 16 ? [last, []] : [last]))
-            return a
-          }, [[]])
-          const type = `std::wstring_view`
-          const indent = '    '
-          const result = reduced.map(a => `${indent}"${a.join('')}"`).join(`\n`)
-          generated.value =
-            `static ${type} const custom_data;\n\n`
-            + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
-        }
+          function generate() {
+            const fullText = [...splitted.value, '\xFF'].join(' ')
+            const processed = process(fullText)
+              .split('')
+              .map(c => c.charCodeAt(0))
+              .map(x => ('0000' + x.toString(16).toUpperCase()).slice(-4))
+              .map(s => `\\u${s}`)
+            const reduced = processed.reduce((a, s) => {
+              const last = [...a.pop(), s]
+              a.push(...(last.length >= 16 ? [last, []] : [last]))
+              return a
+            }, [[]])
+            const type = `std::wstring_view`
+            const indent = '    '
+            const result = reduced.map(a => `${indent}"${a.join('')}"`).join(`\n`)
+            generated.value =
+              `static ${type} const custom_data;\n\n`
+              + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
+          }
 
-        function select() {
-          const range = document.createRange()
-          range.selectNodeContents(pre.value)
-          var sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+          function select() {
+            const range = document.createRange()
+            range.selectNodeContents(pre.value)
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
 
-        return {
-          text,
-          code,
-          error,
-          generated,
-          pre,
-          splitted,
-          redo,
-          process,
-          generate,
-          select,
+          return {
+            text,
+            code,
+            error,
+            generated,
+            pre,
+            splitted,
+            redo,
+            process,
+            generate,
+            select,
+          }
         }
-      }
-    }).mount('#app')
+      }).mount('#app')
     </script>
   </body>
 </html>
