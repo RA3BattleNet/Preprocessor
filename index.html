@@ -173,15 +173,15 @@
           const error = ref('')
           const generated = ref('')
           const pre = ref(null)
-          const isReverse = computed(() => /"(\\x[A-F0-9]{4})+"/i.test(text.value))
+          const isReverse = computed(() => /(0x[A-F0-9]{4},)+/i.test(text.value))
           const reversed = computed(() => {
             if (!isReverse.value) {
               return ''
             }
             const t = text.value
-            const trimmed = t.substring(t.indexOf('"') + 1, t.lastIndexOf('"'))
+            const trimmed = t.substring(t.indexOf('{') + 1, t.lastIndexOf('}'))
             const replaced = trimmed.replace(/\\x/g, '\\u')
-            return eval(`"${replaced.replace(/["\s+]+/g, '')}"`)
+            return eval(`[${replaced.replace(/["\s+]+/g, '')}]`).map(x => String.fromCharCode(x)).join('')
           })
           const replaced = computed(() => isReverse.value ? '' : text.value.replace(/\s+/g, ' '))
           const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
@@ -224,18 +224,18 @@
               .split('')
               .map(c => c.charCodeAt(0))
               .map(x => ('0000' + x.toString(16).toUpperCase()).slice(-4))
-              .map(s => `\\x${s}`)
+              .map(s => `0x${s},`)
             const reduced = processed.reduce((a, s) => {
               const last = [...a.pop(), s]
               a.push(...(last.length >= 16 ? [last, []] : [last]))
               return a
             }, [[]])
-            const type = `std::wstring_view`
+            const type = `std::array<std::uint16_t, ${processed.length}>`
             const indent = '    '
-            const result = reduced.map(a => `${indent}"${a.join('')}"`).join(`\n`)
+            const result = reduced.map(a => `${indent}"${a.join(' ')}"`).join(`\n`)
             generated.value =
               `static ${type} const custom_data;\n\n`
-              + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
+              + `inline ${type} constexpr CLASS::custom_data = \n{\n${result}\n};`
           }
           function reverse() {
             text.value = process(reversed.value).replace(/\xFF$/, '').split(' ').join('\n')
