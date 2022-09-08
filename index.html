@@ -232,7 +232,7 @@
             }, [[]])
             const type = `std::array<std::uint16_t, ${processed.length}>`
             const indent = '    '
-            const result = reduced.map(a => `${indent}"${a.join(' ')}"`).join(`\n`)
+            const result = reduced.map(a => `${indent}${a.join(' ')}`).join(`\n`)
             generated.value =
               `static ${type} const custom_data;\n\n`
               + `inline ${type} constexpr CLASS::custom_data = \n{\n${result}\n};`
