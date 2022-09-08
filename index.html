@@ -180,7 +180,7 @@
             }
             const t = text.value
             const trimmed = t.substring(t.indexOf('"') + 1, t.lastIndexOf('"'))
-            return eval(`"{trimmed.replace(/["\s+]+/g, '')}"`)
+            return eval(`"${trimmed.replace(/["\s+]+/g, '')}"`)
           })
           const replaced = computed(() => isReverse.value ? '' : text.value.replace(/\s+/g, ' '))
           const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
