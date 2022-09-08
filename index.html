@@ -173,7 +173,7 @@
           const error = ref('')
           const generated = ref('')
           const pre = ref(null)
-          const isReverse = computed(() => /"(\\u[A-F0-9]{4})+"/i.test(text))
+          const isReverse = computed(() => /"(\\u[A-F0-9]{4})+"/i.test(text.value))
           const reversed = computed(() => {
             if (!isReverse.value) {
               return ''
