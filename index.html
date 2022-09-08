@@ -121,7 +121,8 @@
           <div class="error" v-if="error">
             {{ error }}
           </div>
-          <button v-on:click="generate" v-else>生成处理后的数据</button>
+          <button v-on:click="generate" v-else-if="!reversed">生成处理后的数据</button>
+          <button v-on:click="reverse" v-else>从处理后的数据获取原文</button>
         </div>
       </div>
       <div class="separator"></div>
@@ -172,7 +173,16 @@
           const error = ref('')
           const generated = ref('')
           const pre = ref(null)
-          const replaced = computed(() => text.value.replace(/\s+/g, ' '))
+          const isReverse = computed(() => /"(\\u[A-F0-9]{4})+"/i.test(text))
+          const reversed = computed(() => {
+            if (!isReverse.value) {
+              return ''
+            }
+            const t = text.value
+            const trimmed = t.substring(t.indexOf('"') + 1, t.lastIndexOf('"'))
+            return eval(`"{trimmed.replace(/["\s+]+/g, '')}"`)
+          })
+          const replaced = computed(() => isReverse.value ? '' : text.value.replace(/\s+/g, ' '))
           const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
           const processor = computed(() => {
             try {
@@ -226,6 +236,9 @@
               `static ${type} const custom_data;\n\n`
               + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
           }
+          function reverse() {
+            text.value = process(reversed.value).split(' ').join('\n')
+          }
 
           function select() {
             const range = document.createRange()
@@ -241,10 +254,12 @@
             error,
             generated,
             pre,
+            reversed,
             splitted,
             redo,
             process,
             generate,
+            reverse,
             select,
           }
         }
