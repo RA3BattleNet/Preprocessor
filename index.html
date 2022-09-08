@@ -237,7 +237,7 @@
               + `${type} constexpr CLASS::custom_data = L""\n${result}sv;`
           }
           function reverse() {
-            text.value = process(reversed.value).split(' ').join('\n')
+            return process(reversed.value).replace(/\xFF$/, '').split(' ').join('\n')
           }
 
           function select() {
