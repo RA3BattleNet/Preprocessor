@@ -173,14 +173,15 @@
           const error = ref('')
           const generated = ref('')
           const pre = ref(null)
-          const isReverse = computed(() => /"(\\u[A-F0-9]{4})+"/i.test(text.value))
+          const isReverse = computed(() => /"(\\x[A-F0-9]{4})+"/i.test(text.value))
           const reversed = computed(() => {
             if (!isReverse.value) {
               return ''
             }
             const t = text.value
             const trimmed = t.substring(t.indexOf('"') + 1, t.lastIndexOf('"'))
-            return eval(`"${trimmed.replace(/["\s+]+/g, '')}"`)
+            const replaced = trimmed.replace(/\\x/g, '\\u')
+            return eval(`"${replaced.replace(/["\s+]+/g, '')}"`)
           })
           const replaced = computed(() => isReverse.value ? '' : text.value.replace(/\s+/g, ' '))
           const splitted = computed(() => replaced.value.split(' ').filter(x => !!x))
@@ -223,7 +224,7 @@
               .split('')
               .map(c => c.charCodeAt(0))
               .map(x => ('0000' + x.toString(16).toUpperCase()).slice(-4))
-              .map(s => `\\u${s}`)
+              .map(s => `\\x${s}`)
             const reduced = processed.reduce((a, s) => {
               const last = [...a.pop(), s]
               a.push(...(last.length >= 16 ? [last, []] : [last]))
